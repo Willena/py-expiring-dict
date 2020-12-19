@@ -30,9 +30,11 @@ cache = ExpiringDict()  # No TTL set, keys set via [] will not expire
 
 cache["abc"] = "persistent"
 cache.ttl("123", "expired", 1)  # This will expire after 1 second
+cache.reset_ttl("123") # Set ttl to default, does not expire anymore
 assert "abc" in cache
 assert "123" in cache
 sleep(1)
 assert "abc" in cache
+cache.expire("123") # Set the ttl for the key to 0 and automatically expire now 
 assert "123" not in cache
 ```
