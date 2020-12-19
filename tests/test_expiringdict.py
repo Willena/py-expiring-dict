@@ -1,5 +1,11 @@
+import copy
+import random
+import string
+import queue
+from threading import Thread
+
 from expiring_dict import ExpiringDict
-from time import sleep
+from time import sleep, time
 
 
 def test_init():
@@ -98,15 +104,92 @@ def test_expire():
     sleep(1)
     assert len(ed) == 0
 
+def test_perf():
+    def key(message):
+        return tuple([message[k] for k in keys if k in message])
+
+    def th(data):
+        print(data)
+        while True:
+            try:
+                e = Q.get(timeout=0.01)
+                k = key(e)
+                # print(" key {key}".format(key=k))
+                exDir = data['mnemo']
+
+                if k in exDir:
+                    if e in exDir[k]['messages']:
+                        # print("  Already have the message")
+                        continue
+
+                    exDir[k]['messages'].append(copy.deepcopy(e))
+                    exDir[k]['d'] += 1
+                    # print("  Add one nano sec")
+
+                else:
+                    exDir[k] = {'messages': [copy.deepcopy(e)], 'd': 0}
+                    # print("  New message")
+
+            except queue.Empty:
+                pass
+
+    def get_random_string(length):
+        letters = string.ascii_lowercase
+        result_str = ''.join(random.choice(letters) for i in range(length))
+        return result_str
+
+    def generator():
+        return {
+            "a": get_random_string(3),
+            "b": "Static",
+            "c": "Static",
+            "d": random.randint(0, 1000),
+            "u": "str" + str(random.randint(0, 10000))
+        }
+
+    def producer():
+        t = time()
+        while time() - t < 60 * 5:
+            obj = generator()
+            Q.put_nowait(obj)
+            # print("Added obj ".format(obj))
+
+    if __name__ == '__main__':
+        global keys
+        keys = ["a", "b", "c", "d"]
+
+        global Q
+        Q = queue.Queue(maxsize=-1)
+
+        data = {'mnemo': ExpiringDict(ttl=180, interval=5)}
+        data['mnemo'].set_delete_callback(lambda x: print(
+            "Deleting {} items. Current len {}s".format(x, len(data['mnemo']))))
+
+        thList = []
+
+        for i in range(0, 5):
+            tha = Thread(target=th, args=(data,))
+            tha.setName("Thread" + str(i))
+            tha.setDaemon(True)
+            tha.start()
+
+        t = None
+        for i in range(0, 1):
+            t = Thread(target=producer, name="Producer" + str(i))
+            t.start()
+
+        t.join()
+        sleep(60 * 5)
 
 if __name__ == '__main__':
     # Run All tests
-    test_reset_ttl()
-    test_expire()
-    test_key_delete_callback()
-    test_delete_callback()
-    test_init()
-    test_class_ttl()
-    test_dict_ops()
-    test_no_ttl()
-    test_set_ttl()
+    # test_reset_ttl()
+    # test_expire()
+    # test_key_delete_callback()
+    # test_delete_callback()
+    # test_init()
+    # test_class_ttl()
+    # test_dict_ops()
+    # test_no_ttl()
+    # test_set_ttl()
+    test_perf()

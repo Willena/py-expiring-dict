@@ -48,6 +48,8 @@ class ExpiringDict(MutableMapping):
 
             if max_index > 0 and self.__delete_callback is not None:
                 self.__delete_callback(max_index)
+                self.__store = self.__store.copy()
+                self.__reverse_keys = self.__reverse_keys.copy()
 
             del self.__keys[0:max_index]
 
